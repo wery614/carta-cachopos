@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carta - Esencia Astur (Editable y Imprimible)</title>
+    <!-- Tailwind CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Alpine.js CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lora:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Lora', serif; /* Una fuente elegante y legible */
+            background-color: #f8f5ed; /* Un color de fondo suave */
+            color: #333;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Playfair Display', serif; /* Fuente más decorativa para títulos */
+            color: #4a2c2a; /* Un tono oscuro y cálido */
+        }
+        .container-menu {
+            max-width: 900px;
+        }
+        .section-title {
+            position: relative;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .section-title::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 2px;
+            background-color: #a0522d; /* Color decorativo para la línea */
+        }
+        .cachopo-card {
+            background-color: #ffffff;
+            border-left: 4px solid #a0522d; /* Detalle decorativo */
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .cachopo-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+        .price {
+            color: #a0522d;
+            font-weight: bold;
+        }
+        .text-astur {
+            color: #a0522d;
+        }
+        .bg-astur-light {
+            background-color: #e0d8c0;
+        }
+        .border-astur {
+            border-color: #a0522d;
+        }
+        /* Estilo para elementos editables */
+        [contenteditable="true"] {
+            border: 1px dashed #ccc;
+            padding: 2px 5px;
+            min-width: 50px; /* Para que se vea el borde incluso si está vacío */
+            outline: none; /* Quita el contorno por defecto del navegador */
+        }
+        [contenteditable="true"]:focus {
+            border-color: #a0522d;
+            background-color: #fffaf0; /* Fondo más claro al editar */
+        }
+        .edit-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        .print-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        /* --- Estilos para IMPRESIÓN --- */
+        @media print {
+            body {
+                background-color: #fff; /* Fondo blanco para impresión */
+                color: #000; /* Texto negro para mejor contraste */
+                margin: 0;
+                padding: 0;
+            }
+            .edit-controls, .print-button {
+                display: none; /* Oculta los controles de edición y el botón de imprimir */
+            }
+            .container-menu {
+                box-shadow: none; /* Elimina la sombra para impresión */
+                border: none; /* Elimina el borde superior */
+                margin: 0;
+                padding: 20mm; /* Márgenes generosos para impresión */
+                max-width: 100%; /* Ocupa todo el ancho disponible */
+            }
+            h1, h2, h3, .font-display {
+                color: #000 !important; /* Asegura que los títulos se impriman en negro */
+            }
+            .text-astur {
+                color: #000 !important; /* Asegura que este texto también se imprima en negro */
+            }
+            .section-title::after {
+                background-color: #000; /* Línea decorativa en negro */
+            }
+            .cachopo-card {
+                box-shadow: none; /* Elimina sombras de las tarjetas */
+                border: 1px solid #eee; /* Borde sutil en lugar del borde izquierdo */
+                page-break-inside: avoid; /* Evita que las tarjetas se corten entre páginas */
+            }
+            /* Muestra la descripción de los cachopos por defecto al imprimir */
+            .cachopo-card > div[x-show] {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+            }
+            /* Oculta las flechas de colapso en impresión */
+            .cachopo-card .float-right {
+                display: none;
+            }
+            /* Asegura que los precios se vean bien en impresión */
+            .price {
+                color: #000 !important;
+            }
+            /* Quita el borde de los elementos editables */
+            [contenteditable="true"] {
+                border: none !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased leading-normal" x-data="menuData()">
+
+    <!-- Controles de Edición -->
+    <div class="edit-controls bg-white p-3 rounded-lg shadow-xl flex flex-col space-y-2">
+        <button @click="toggleEditMode()" :class="{'bg-red-500 hover:bg-red-600': editMode, 'bg-green-500 hover:bg-green-600': !editMode}" class="text-white font-bold py-2 px-4 rounded transition duration-300">
+            <span x-text="editMode ? 'Salir del Modo Edición' : 'Entrar en Modo Edición'"></span>
+        </button>
+        <button x-show="editMode" @click="saveContent()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition duration-300">
+            Guardar Cambios
+        </button>
+        <button x-show="editMode" @click="addCachopo()" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded transition duration-300">
+            Añadir Cachopo
+        </button>
+    </div>
+
+    <!-- Botón de Imprimir -->
+    <button @click="window.print()" class="print-button bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded shadow-xl transition duration-300 flex items-center space-x-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M5 4V2a2 2 0 012-2h6a2 2 0 012 2v2h2a2 2 0 012 2v3a2 2 0 01-2 2h-1v5a2 2 0 01-2 2H7a2 2 0 01-2-2v-5H4a2 2 0 01-2-2V6a2 2 0 012-2h1zM4 6v3h12V6H4zm3 0h6V2H7v4zm-1 7v4a1 1 0 001 1h6a1 1 0 001-1v-4H6z" clip-rule="evenodd" />
+        </svg>
+        <span>Imprimir Carta</span>
+    </button>
+
+    <div class="container-menu mx-auto mt-8 mb-12 p-6 bg-white shadow-lg rounded-lg border-t-8 border-astur">
+        
+        <!-- Header -->
+        <header class="text-center mb-10 pb-4 border-b border-gray-200">
+            <h1 class="font-display text-5xl font-bold mb-2 text-astur" :contenteditable="editMode" data-key="header-title">Esencia Astur</h1>
+            <p class="text-xl font-light italic text-gray-700" :contenteditable="editMode" data-key="header-slogan">Donde la tradición se saborea</p>
+        </header>
+
+        <!-- Filosofía -->
+        <section class="mb-12">
+            <h2 class="section-title font-display text-3xl mb-6 text-gray-800" :contenteditable="editMode" data-key="philosophy-title">Nuestra Filosofía</h2>
+            <p class="text-center text-lg leading-relaxed text-gray-700" :contenteditable="editMode" data-key="philosophy-text">
+                En "Esencia Astur", cada plato es un homenaje a nuestra tierra. Seleccionamos con esmero los mejores productos de Asturias para ofrecerles una experiencia culinaria auténtica e inolvidable. Nuestros cachopos, especialidad de la casa, son la viva expresión de esta pasión.
+            </p>
+        </section>
+
+        <!-- Cachopos Section -->
+        <section class="mb-12" x-data="{ openCachopo: null }">
+            <h2 class="section-title font-display text-3xl mb-6 text-gray-800" :contenteditable="editMode" data-key="cachopos-section-title">Los Cachopos de Esencia Astur</h2>
+            <p class="text-center text-lg leading-relaxed mb-8 text-gray-700" :contenteditable="editMode" data-key="cachopos-section-intro">
+                Cada uno de nuestros cachopos es preparado al momento, con ternera de primera calidad y un rebozado crujiente que guarda celosamente un interior tierno y jugoso.
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-8" id="cachopo-list">
+                
+                <!-- Alpine.js loop para cachopos -->
+                <template x-for="(cachopo, index) in cachopos" :key="cachopo.id">
+                    <div class="cachopo-card p-6 rounded-lg shadow-md relative" @click="!editMode && (openCachopo = openCachopo === cachopo.id ? null : cachopo.id)">
+                        <h3 class="font-display text-2xl font-semibold mb-2 cursor-pointer text-astur">
+                            <span :contenteditable="editMode" :data-key="'cachopo-' + cachopo.id + '-title'" x-text="cachopo.title"></span>
+                            <span class="float-right text-gray-500 text-sm" x-show="!editMode">&#9660;</span>
+                        </h3>
+                        <p class="text-gray-600 italic mb-3" :contenteditable="editMode" :data-key="'cachopo-' + cachopo.id + '-slogan'" x-text="cachopo.slogan"></p>
+                        <div x-show="openCachopo === cachopo.id || editMode" x-collapse.duration.300ms>
+                            <p class="text-gray-700 leading-relaxed" :contenteditable="editMode" :data-key="'cachopo-' + cachopo.id + '-description'" x-text="cachopo.description"></p>
+                            <div class="flex justify-between items-center mt-4">
+                                <span class="price" 
+                                    :class="{'text-xl': cachopo.price !== 'Precio según tamaño', 'text-base': cachopo.price === 'Precio según tamaño'}"
+                                    :contenteditable="editMode" 
+                                    :data-key="'cachopo-' + cachopo.id + '-price'" 
+                                    x-text="cachopo.price">
+                                </span>
+                            </div>
+                        </div>
+                        <button x-show="editMode" @click.stop="removeCachopo(index)" class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white text-xs px-2 py-1 rounded-full">X</button>
+                    </div>
+                </template>
+
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="text-center mt-10 pt-6 border-t border-gray-200">
+            <p class="text-xl font-display text-astur" :contenteditable="editMode" data-key="footer-greeting">¡Buen provecho y Puxa Asturies!</p>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('menuData', () => ({
+                editMode: false,
+                cachopos: [
+                    { id: 'casa', title: 'El Cachopo "De la Casa"', slogan: 'La esencia de nuestra tradición', description: 'Tierna ternera de primera calidad, rellena de exquisito jamón reserva y auténtico queso asturiano. Una combinación perfecta de sabores que rinde homenaje a nuestra tierra.', price: '€18.50' },
+                    { id: 'chef', title: 'El Cachopo "Del Chef"', slogan: 'Una creación magistral de sabor', description: 'Nuestra ternera de primera, generosamente rellena de jamón reserva, delicados piquillos de Lodosa, una untuosa crema de queso y el toque final de nuestro queso asturiano. Una experiencia sublime.', price: '€21.00' },
+                    { id: 'mi', title: 'El Cachopo "Mi Cachopo"', slogan: 'Un capricho de alta gastronomía', description: 'Ternera de primera, jamón reserva, una sedosa crema de piquillos, la sofisticación de la trufa negra rallada y el carácter de nuestro queso asturiano ahumado. Un verdadero tesoro culinario.', price: 'Precio según tamaño' }, // Cambiado a "Precio según tamaño"
+                    { id: 'cuatro', title: 'El Cachopo "Cuatro Quesos"', slogan: 'Una oda a la riqueza quesera asturiana', description: 'Ternera de primera y jamón reserva, abrazando una cuidada selección de Cabrales, Provolone, queso ahumado y nuestro inconfundible queso asturiano. Para los verdaderos amantes del queso.', price: '€20.50' },
+                    { id: 'cecina', title: 'El Cachopo "Cecina y Rulo"', slogan: 'La fuerza del campo leonés y asturiano', description: 'Nuestra ternera de primera, rellena de fina Cecina de León, cremoso Rulo de Cabra y el sabor inconfundible del queso asturiano. Una combinación con carácter.', price: '€22.00' },
+                    { id: 'jefa', title: 'El Cachopo "De la Jefa"', slogan: 'La pasión y el buen gusto en cada bocado', description: 'Ternera de primera, el ahumado de la Cecina de León, la suavidad del queso crema, la intensidad del Provolone y la profundidad de nuestro queso asturiano ahumado. Una receta con firma.', price: 'Precio según tamaño' }, // Cambiado a "Precio según tamaño"
+                    { id: 'singluten', title: 'Cachopo Sin Gluten', slogan: 'El placer de "De la Casa", adaptado para ti', description: 'Disfruta de la receta original de nuestro Cachopo "De la Casa" – ternera de primera, jamón reserva y queso asturiano – preparado a la plancha, sin empanar, para una experiencia deliciosa y apta para celíacos.', price: '€19.00' }
+                ],
+                generalContent: { // Para contenido general no en el array de cachopos
+                    'header-title': 'Esencia Astur',
+                    'header-slogan': 'Donde la tradición se saborea',
+                    'philosophy-title': 'Nuestra Filosofía',
+                    'philosophy-text': 'En "Esencia Astur", cada plato es un homenaje a nuestra tierra. Seleccionamos con esmero los mejores productos de Asturias para ofrecerles una experiencia culinaria auténtica e inolvidable. Nuestros cachopos, especialidad de la casa, son la viva expresión de esta pasión.',
+                    'cachopos-section-title': 'Los Cachopos de Esencia Astur',
+                    'cachopos-section-intro': 'Cada uno de nuestros cachopos es preparado al momento, con ternera de primera calidad y un rebozado crujiente que guarda celosamente un interior tierno y jugoso.',
+                    'footer-greeting': '¡Buen provecho y Puxa Asturies!'
+                },
+
+                init() {
+                    this.loadContent();
+                    // Observar cambios en el modo edición para ajustar las flechas de colapso
+                    this.$watch('editMode', (value) => {
+                        this.openCachopo = null; // Cierra todos los cachopos al cambiar de modo
+                    });
+                },
+
+                toggleEditMode() {
+                    this.editMode = !this.editMode;
+                    // Habilitar/deshabilitar contenteditable en todos los elementos relevantes
+                    document.querySelectorAll('[data-key]').forEach(el => {
+                        el.contentEditable = this.editMode;
+                    });
+                },
+
+                saveContent() {
+                    // Guardar contenido general y cachopos del DOM
+                    document.querySelectorAll('[data-key]').forEach(el => {
+                        const key = el.dataset.key;
+                        if (key.startsWith('cachopo-')) {
+                            const parts = key.split('-');
+                            const cachopoId = parts[1];
+                            const prop = parts[2];
+                            const cachopoIndex = this.cachopos.findIndex(c => c.id === cachopoId);
+                            if (cachopoIndex !== -1) {
+                                this.cachopos[cachopoIndex][prop] = el.innerText;
+                            }
+                        } else {
+                            this.generalContent[key] = el.innerText;
+                        }
+                    });
+
+                    localStorage.setItem('esenciaAsturCachopos', JSON.stringify(this.cachopos));
+                    localStorage.setItem('esenciaAsturGeneralContent', JSON.stringify(this.generalContent));
+
+                    alert('¡Contenido guardado localmente!');
+                },
+
+                loadContent() {
+                    const savedCachopos = localStorage.getItem('esenciaAsturCachopos');
+                    if (savedCachopos) {
+                        this.cachopos = JSON.parse(savedCachopos);
+                    }
+
+                    const savedGeneralContent = localStorage.getItem('esenciaAsturGeneralContent');
+                    if (savedGeneralContent) {
+                        const loadedContent = JSON.parse(savedGeneralContent);
+                        this.generalContent = { ...this.generalContent, ...loadedContent };
+                    }
+
+                    // Aplicar el contenido general cargado a los elementos del DOM
+                    this.$nextTick(() => { // Asegura que Alpine.js ya haya inicializado los elementos
+                        document.querySelectorAll('[data-key]').forEach(el => {
+                            const key = el.dataset.key;
+                            if (!key.startsWith('cachopo-')) { 
+                                if (this.generalContent[key] !== undefined) {
+                                    el.innerText = this.generalContent[key];
+                                }
+                            }
+                        });
+                        // Asegurarse de que los cachopos también se actualicen con el contenido cargado si no se hace vía Alpine x-text
+                        this.cachopos.forEach(cachopo => {
+                            for (const prop in cachopo) {
+                                if (prop !== 'id' && document.querySelector(`[data-key="cachopo-${cachopo.id}-${prop}"]`)) {
+                                     document.querySelector(`[data-key="cachopo-${cachopo.id}-${prop}"]`).innerText = cachopo[prop];
+                                }
+                            }
+                        });
+                    });
+                },
+
+                addCachopo() {
+                    const newId = 'new-' + Math.random().toString(36).substr(2, 9);
+                    this.cachopos.push({
+                        id: newId,
+                        title: 'Nuevo Cachopo (Edítame)',
+                        slogan: 'Descripción corta del nuevo cachopo',
+                        description: 'Esta es la descripción detallada del nuevo cachopo que puedes editar.',
+                        price: 'Precio según tamaño' // Por defecto para nuevos cachopos
+                    });
+                    this.$nextTick(() => {
+                        // Después de añadir, activar el modo edición para los nuevos elementos
+                        document.querySelectorAll(`[data-key^="cachopo-${newId}-"]`).forEach(el => {
+                            el.contentEditable = true;
+                        });
+                        this.openCachopo = newId; // Abrir el nuevo cachopo automáticamente
+                    });
+                },
+
+                removeCachopo(index) {
+                    if (confirm('¿Estás seguro de que quieres eliminar este cachopo?')) {
+                        this.cachopos.splice(index, 1);
+                        this.saveContent(); // Guardar cambios después de eliminar
+                    }
+                }
+            }));
+        });
+    </script>
+</body>
+</html>
